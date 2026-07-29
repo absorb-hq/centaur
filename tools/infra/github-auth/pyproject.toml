@@ -1,0 +1,33 @@
+[project]
+name = "github-auth"
+version = "0.1.0"
+description = "Registers the deployment's GitHub credential with iron-proxy so git and gh work inside sandboxes"
+dependencies = []
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+
+[tool.hatch.build.targets.wheel.sources]
+"." = "centaur_tool_github_auth"
+
+# This tool exists for its secret declaration, not its methods.
+#
+# The sandbox entrypoint wires `git config credential.helper store` and
+# `gh auth login --with-token` from $GITHUB_TOKEN, and iron-proxy's
+# `placeholder_env` is documented to cover "git's GITHUB_TOKEN" -- but nothing
+# in the stock tools tree actually DECLARES that secret. Without a declaration
+# there is no proxy rule for github.com, the sandbox gets no usable value, and
+# every push / `gh pr create` fails with "Bad credentials".
+#
+# match_headers (rather than mode="inject") makes this a replace-mode secret:
+# the sandbox sees the literal placeholder GITHUB_TOKEN and iron-proxy swaps in
+# the real credential on requests to the hosts below.
+[tool.centaur]
+module = "client.py"
+secrets = [
+    {type = "http", name = "GITHUB_TOKEN", match_headers = ["Authorization"], hosts = ["github.com", "api.github.com"]},
+]
